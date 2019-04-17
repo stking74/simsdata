@@ -16,9 +16,9 @@ class SIMSrawdata(object):
     '''
 
     def __init__(self):
-        return
+        return        
 
-    def load_from_file(self, path, file_prefix, nuke=False):
+    def load_from_file(self, path, file_prefix, chunk_order=None, unit_size=None, nuke=False):
         '''
         Loads raw SIMS data from GRD files
 
@@ -36,87 +36,67 @@ class SIMSrawdata(object):
         h5_path = os.path.join(path, file_prefix+'.h5')
         h5f = h5py.File(h5_path, 'w')
         
-        chunk_order = 2                                                         #Base chunk sizing unit, 1 = KB, 2 = MB, 3 = GB
-        unit_size = 100                                                           #Multiples of unit per chunk
-        chunk_size = int((((8*(10**(3*chunk_order)))/32) * unit_size) / 2)
-        
-        #Import ToF data from datafile
-        f=open(tofs_path, 'rb')
-        tofs=np.fromstring(f.read(),dtype='uint32')                        # And again for the .tofs file (20%/80%)
-        f.close()
-        counts = len(tofs)
-        n_blocks = int(counts//chunk_size)
-        remainder = int(counts%chunk_size)
-        print('Sorting raw data...')
-        sii = np.argsort(tofs)
-        
+        counts=os.path.getsize(scans_path)/4        
         if 'Raw_data' in h5f.keys():
             del h5f['Raw_data']
-        grp=h5f.create_group('Raw_data')
-        dset=grp.create_dataset('Raw_data', (counts, 4), dtype='uint32', chunks=(chunk_size, 1))
-        print('Writing tofs...')
-        for i in range(n_blocks):
-            low = i * chunk_size
-            high = low + chunk_size
-            block = [tofs[sii[jj]] for jj in range(low, high)]
-            dset[low:high, 3] = block
-            del block
-        low = n_blocks * chunk_size
-        high = low + remainder
-        block = [tofs[sii[jj]] for jj in range(low, high)]
-        dset[low:high, 3] = block
-        del tofs, block
-        h5f.flush()
-        if nuke: os.remove(tofs_path)
-        sii = np.array(sii, dtype='uint32')
-        #Read measurement coordinates from datafiles
-        f=open(scans_path, 'rb')
-        z=np.fromstring(f.read(),dtype='uint32')                           #Load what seems to be full contents of .shots file into RAM, + some overhead (20%/20%)
-        f.close()
-        print('Writing scans...')
-        for i in range(n_blocks):
-            low = i * chunk_size
-            high = low + chunk_size
-            block = [z[sii[jj]] for jj in range(low, high)]
-            dset[low:high,2]=block
-            del block
-        low = n_blocks * chunk_size
-        high = low + remainder
-        block = [z[sii[jj]] for jj in range(low, high)]
-        dset[low:high,2]=block
-        layers=z.max()+1
-        del z, block
-        h5f.flush()
-        if nuke: os.remove(scans_path)
-        f=open(coords_path, 'rb')
-        coords=np.fromstring(f.read(),dtype='uint32')                           #Similar for .coords file (40%/60%)
-        f.close()
-        cols=0
-        rows=0
-        print('Writing coordinates...')
-        for i in range(n_blocks):
-            low = i * chunk_size
-            high = low + chunk_size
-            xblock = [coords[sii[jj]*2] for jj in range(low, high)]
-            yblock = [coords[(sii[jj]*2)+1] for jj in range(low, high)]
-            if np.max(xblock) > cols: cols = np.max(xblock)
-            if np.max(yblock) > rows: rows = np.max(yblock)
-            dset[low:high,0]=xblock
-            dset[low:high,1]=yblock
-            del xblock
-            del yblock
-        low = n_blocks * chunk_size
-        high = low + remainder
-        xblock = [coords[sii[jj]*2] for jj in range(low, high)]
-        yblock = [coords[(sii[jj]*2)+1] for jj in range(low, high)]
-        dset[low:high,0]=xblock
-        dset[low:high,1]=yblock
-        del coords, xblock, yblock
-        h5f.flush()
-        if nuke: os.remove(coords_path)
-        cols += 1
-        rows += 1
+        grp=h5f.create_group('Raw_data')        
         
+        print(counts)
+        
+        if not chunk_order or not unit_size:
+            chunk_size=counts
+        else:
+            chunk_size=int(2**(10*chunk_order)*unit_size/4)                     #Number of values in one chunk
+        
+        dset=grp.create_dataset('Raw_data', (counts, 4), dtype='uint32',chunks=(chunk_size,1))
+
+        f_tofs=open(tofs_path, 'rb')
+        f_scans=open(scans_path, 'rb')
+        f_coords=open(coords_path, 'rb')
+        
+        i=0
+        
+        tofs_chunk=np.frombuffer(f_tofs.read(chunk_size*4),'uint32')
+        scans_chunk=np.frombuffer(f_scans.read(chunk_size*4),'uint32')
+        coords_chunk=np.frombuffer(f_coords.read(chunk_size*8),'uint32')
+        
+        x_max,y_max, z_max=(0,0,0)
+        
+        while len(tofs_chunk)==chunk_size:
+                        
+            dset[i*chunk_size:(i+1)*chunk_size,0]=coords_chunk[::2]
+            dset[i*chunk_size:(i+1)*chunk_size,1]=coords_chunk[1::2]
+            dset[i*chunk_size:(i+1)*chunk_size,2]=scans_chunk
+            dset[i*chunk_size:(i+1)*chunk_size,3]=tofs_chunk
+            h5f.flush()
+                      
+            if coords_chunk[::2].max()>x_max:
+                x_max=coords_chunk[::2].max()
+            if coords_chunk[1::2].max()>y_max:
+                y_max=coords_chunk[1::2].max()
+            if scans_chunk.max()>z_max:
+                z_max=scans_chunk.max()
+            
+            del(tofs_chunk)
+            del(scans_chunk)
+            del(coords_chunk)
+            
+            print('Chunk %d completed'%(i))
+            
+            tofs_chunk=np.fromstring(f_tofs.read(chunk_size*4),dtype='uint32')
+            scans_chunk=np.fromstring(f_scans.read(chunk_size*4),dtype='uint32')
+            coords_chunk=np.fromstring(f_coords.read(chunk_size*8),dtype='uint32')
+            
+            i+=1
+            
+        f_tofs.close()
+        f_scans.close()
+        f_coords.close()
+        if nuke: 
+            os.remove(tofs_path)
+            os.remove(scans_path)
+            os.remove(coords_path)
+            
         #Read in measurement parameters from properties plaintext file
         parms_path=os.path.join(path, file_prefix+'.properties.txt')
         f=open(parms_path, encoding='ISO-8859-1')
@@ -136,9 +116,9 @@ class SIMSrawdata(object):
         grp.attrs['Total_counts']=counts
         grp.attrs['SF']=SF
         grp.attrs['K0']=K0
-        grp.attrs['x_points']=cols
-        grp.attrs['y_points']=rows
-        grp.attrs['z_points']=layers
+        grp.attrs['x_points']=x_max
+        grp.attrs['y_points']=y_max
+        grp.attrs['z_points']=z_max
 
         h5f.flush()
         if nuke: os.remove(parms_path)
