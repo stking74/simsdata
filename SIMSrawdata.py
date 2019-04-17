@@ -41,8 +41,6 @@ class SIMSrawdata(object):
             del h5f['Raw_data']
         grp=h5f.create_group('Raw_data')        
         
-        print(counts)
-        
         if not chunk_order or not unit_size:
             chunk_size=counts
         else:
