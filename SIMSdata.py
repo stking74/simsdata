@@ -25,7 +25,7 @@ class SIMSdata(object):
     Class stroing and processing converted SIMS data
     '''
 
-    def __init__(self, h_ex=1.5e-3, U_ex=2e3):
+    def __init__(self, h_ex=1.5e-3, U_ex=2e3,use_mp=True,cores=2):
         '''
         Initialize SIMSdata data handling class. Begin by setting 
         [[UNKNOWN]] calibration constants.
@@ -34,6 +34,8 @@ class SIMSdata(object):
         '''
         self.h_ex = h_ex
         self.U_ex = U_ex
+        self.use_mp=use_mp
+        self.cores=cores
         return
 
     def close(self):
@@ -60,7 +62,8 @@ class SIMSdata(object):
         return
 
     def load_h5(self, h5_path):
-        self.h5f = h5py.File(h5_path)
+        self.h5_path=h5_path
+        self.h5f = h5py.File(self.h5_path)
 
     def convert_data(self, name, conv_model, cores=5, **kwargs):
         '''
@@ -80,7 +83,7 @@ class SIMSdata(object):
             self.shift_correction(conv_model, cores=cores)
 
         #Convert raw data into Numpy array
-        conv_data = SIMSconversion(name, self.h5f, conv_model)
+        conv_data = SIMSconversion(name, self.h5f, conv_model, self.h5_path,use_mp=self.use_mp,cores=self.cores)
 
         if conv_model.conv_all:
             conv_data.select_all_peaks(conv_model.exclude_mass)

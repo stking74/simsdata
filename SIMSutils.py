@@ -6,6 +6,7 @@ Created on Wed Aug 24 11:52:44 2016
 """
 
 import numpy as np
+import h5py
 from numpy import pi
 from scipy.optimize import curve_fit
 
@@ -20,6 +21,36 @@ def r_square(xdata, ydata, func, popt):
     SS_tot=np.sum((ydata-y_mean)**2)
     SS_res=np.sum((ydata-func(xdata,*popt))**2)
     return 1-SS_res/SS_tot
+
+def convert_chunk(p):
+    """
+    p[0] - h5 file path
+    p[1] - chunk start position
+    p[2] - chunk size
+    p[3] - (xy_bins, z_bins, signal_ii, tof_resolution)
+    
+    """
+    h5f=h5py.File(p[0])
+    data_chunk=h5f['Raw_data']['Raw_data'][p[1]:(p[1]+p[2]),:]
+    h5f.close()
+    
+    xy_bins, z_bins, signal_ii, tof_resolution=p[3]  
+    data_out=[]
+    
+    i=0
+    while i<data_chunk.shape[0]:
+        x,y,z=data_chunk[i,:-1]
+        point_spectrum=np.zeros(len(signal_ii)+3)
+        point_spectrum[:3]=(int(x/xy_bins),int(y/xy_bins),int(z/z_bins))
+        while data_chunk[i,:-1]==(x,y,z):
+            c_tof=int(data_chunk[i,3]/tof_resolution)
+            if c_tof in signal_ii:
+                point_spectrum[c_tof+3]+=1
+            i+=1
+            
+        data_out+=[point_spectrum]
+        
+    return data_out
 
 def convert_data3d(p):
     x=p[0]
@@ -87,8 +118,8 @@ def fit_point(p):
  
     
     
-def peaks_detection(tofs, tof_resolution, threshold):
-    M=tofs.max() 
+def peaks_detection(tofs, tof_resolution, threshold,tofs_max):
+    M=tofs_max
     
     htofs, b=np.histogram(tofs, int(M/tof_resolution), (0,int(M/tof_resolution)*tof_resolution))
     max_signal = htofs.max()
