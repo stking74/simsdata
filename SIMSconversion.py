@@ -12,9 +12,9 @@ import matplotlib.pyplot as plt
 from multiprocessing import Pool
 import h5py
 
-from SIMSmodel import SIMSmodel
-from SIMSutils import *
-from SIMSpeakbrowser import SIMSPeakBrowser
+from .SIMSmodel import SIMSmodel
+from .SIMSutils import *
+from .SIMSpeakbrowser import SIMSPeakBrowser
 
 import time
 

@@ -16,9 +16,9 @@ from scipy.ndimage import gaussian_filter
 import h5py
 
 from multiprocessing import Pool
-from SIMSconversion import SIMSconversion
-from SIMSrawdata import SIMSrawdata
-from SIMSutils import fit_point, correct_shift
+from .SIMSconversion import SIMSconversion
+from .SIMSrawdata import SIMSrawdata
+from .SIMSutils import fit_point, correct_shift
 
 class SIMSdata(object):
     '''

@@ -119,7 +119,7 @@ class SIMStranslator(Translator):
         spm_data.attrs = global_parms
         spm_data.addChildren([meas_grp])
         
-        print 'Writing following tree:'
+        print('Writing following tree:')
         meas_grp.showTree()
         
         # decide the file name and folder path:
