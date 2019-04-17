@@ -36,7 +36,7 @@ class SIMSrawdata(object):
         h5_path = os.path.join(path, file_prefix+'.h5')
         h5f = h5py.File(h5_path, 'w')
         
-        counts=os.path.getsize(scans_path)/4        
+        counts=int(os.path.getsize(scans_path)/4)
         if 'Raw_data' in h5f.keys():
             del h5f['Raw_data']
         grp=h5f.create_group('Raw_data')        
