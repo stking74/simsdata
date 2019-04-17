@@ -87,8 +87,8 @@ def fit_point(p):
  
     
     
-def peaks_detection(tofs, tof_resolution, threshold):
-    M=tofs.max() 
+def peaks_detection(tofs, tof_resolution, threshold,tofs_max):
+    M=tofs_max
     
     htofs, b=np.histogram(tofs, int(M/tof_resolution), (0,int(M/tof_resolution)*tof_resolution))
     max_signal = htofs.max()
