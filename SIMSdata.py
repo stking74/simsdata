@@ -87,13 +87,12 @@ class SIMSdata(object):
         else:
             conv_data.select_few_peaks(conv_model.peaks_mass)
 
-        if 'single_process' not in kwargs.keys():
+        if cores < 2:
             print('Single_process')
             conv_data.convert_single_process()
-            #conv_data.convert_multiprocessing(cores=cores)
         else:
-            print('Single_process')
-            conv_data.convert_single_process()
+            print('Multi_process')
+            conv_data.convert_multiprocessing(cores=cores)
 
         self.spectra_tofs = conv_data.spectra_tofs
         self.spectra_mass = conv_data.spectra_mass

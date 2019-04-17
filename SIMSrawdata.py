@@ -102,8 +102,13 @@ class SIMSrawdata(object):
         f=open(parms_path, encoding='ISO-8859-1')
         sims_parms={}
         for line in f:
-            words=line.split()
-            sims_parms[words[0]]=float(words[2])
+            try:
+                words=line.split()
+                sims_parms[words[0]]=float(words[2])
+            except ValueError:
+                line = line[2:]
+                words=line.split()
+                sims_parms[words[0]]=float(words[2])
         f.close()
         #Read in calibration parameters
         SF=sims_parms['Context.MassScale.SF']
