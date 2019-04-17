@@ -206,96 +206,50 @@ class SIMSconversion(object):
             dataset='Raw_data_uncorr'
         else:
             dataset='Raw_data'
-            
+        
+        counts = self.h5f['Raw_data'].shape[0]
+        chunk_size = 10000
+        n_chunks = counts // chunk_size
+        remainder = chunk_size % n_chunks
         t0=time.time()
-        print("SIMS data preparation...")
-        p_x=[]
-        p_y=[]
-        p_tof=[]
         
         p_parms=itertools.repeat((self.x_points, self.y_points, self.xy_bins, 
                                   self.spectra_tofs, self.tof_resolution))
-
-        z_data=self.h5f['Raw_data'][dataset][:,2]
-        x_data=self.h5f['Raw_data']['Raw_data'][:,0]
-        y_data=self.h5f['Raw_data']['Raw_data'][:,1]
-        tof_data=self.h5f['Raw_data']['Raw_data'][:,3]
-#             
-        i=0
-        layer=0
-        while layer<self.raw_z_points:
-            i0=i
-            i=np.searchsorted(z_data[i0:],layer+1)+i0
-            #print(i)
-
-            p_x+=[x_data[i0:i]]
-            p_y+=[y_data[i0:i]]
-            p_tof+=[tof_data[i0:i]]
-            #print('Slicing done!')
-                       
-#            p_x+=[self.h5f['Raw_data'][dataset][i0:i,0]]
-#            p_y+=[self.h5f['Raw_data'][dataset][i0:i,1]]
-#            p_tof+=[self.h5f['Raw_data'][dataset][i0:i,3]]
-            
-            layer+=1
-            print('Layer %d done'%(layer))
-            
-        p_wrapped=zip(p_x,p_y,p_tof,p_parms)            
+        
+        p_wrapped=[(self.h5f, i*chunk_size, chunk_size, (self.xy_bins, self.z_bins, self.spectra_tofs, self.tof_resolution)) for i in range(n_chunks)]
+        p_wrapped.append((self.h5f, (i+1)*chunk_size, remainder, (self.xy_bins, self.z_bins, self.spectra_tofs, self.tof_resolution)))
         print("SIMS data preparation complete. %d sec"%(time.time()-t0))
         t0=time.time()
-        print("SIMS data conversion...")        
-        
+        print("SIMS data conversion...")
                           
         pool=Pool(processes=cores)
-        mapped_results=pool.imap(convert_data3d, p_wrapped, chunksize=1) 
+        mapped_results=pool.imap(convert_chunk, p_wrapped, chunksize=1) 
         pool.close() 
         
-      #  data4d=np.zeros((self.z_points,self.x_points,self.y_points,self.spectra_len))
+        #data4d=np.zeros((self.z_points,self.x_points,self.y_points,self.spectra_len))
         
         layers=self.z_points if self.save_mode=='bin' else self.raw_z_points
         layer_bins=self.z_bins if self.save_mode=='bin' else 1
         
-        self.h5f[self.h5_grp_name].create_dataset('Data_full',(layers*self.x_points*self.y_points, self.spectra_len))
-        
         ave_spectrum=np.zeros(self.spectra_len)
-        ave_3d_map=np.zeros((self.raw_z_points,self.x_points,self.y_points))
         
-        s=0
-        bin_ii=0
-        complete=0
-        total_counts=0 
-
-        data_slice=np.zeros((self.x_points*self.y_points, self.spectra_len))
-        for (data2d,count) in mapped_results:
-           bin_ii+=1
-           data_slice+=data2d
-           if bin_ii==layer_bins:
-               ii_start=self.x_points*self.y_points*int(s/layer_bins)
-               ii_end = self.x_points*self.y_points*(int(s/layer_bins)+1)
-               self.h5f[self.h5_grp_name]['Data_full'][ii_start:ii_end,:]=data_slice              
-               self.h5f.flush()
-               #Reset vars
-               data_slice[...]=0
-               bin_ii=0
-           
-           total_counts+=count
-           print('Layer %d. %d counts'%(s, count))
-           
-           ave_spectrum+=data2d.sum(axis=0)
-           ave_3d_map[s,:,:]=data2d.sum(axis=1).reshape((self.x_points,self.y_points))
-           
-           s+=1                      
-           if s*100/self.raw_z_points-complete>=10:
-               complete+=10
-               print("%d%% complete"%(complete))
-               
-        del(p_wrapped)
-        del(p_x)        
-        del(p_y)        
-        del(p_tof)   
+        n_spectra=0 
+        ave_3d_map = np.zeros(shape=(self.x_points, self.y_points))
+        data3d = np.zeros(shape=self.x_points, self.y_points, self.z_points, len(self.spectra_len))
+        for out_block in mapped_results:
+            for spectrum in out_block:
+                x, y, z = tuple(spectrum[:3])
+                spectrum = spectrum[3:]
+                data3d[x,y,z] += spectrum
+                ave_3d_map[x, y] += np.sum(spectrum)
+                ave_spectrum += spectrum
+                n_spectra += 1
+         
+        self.h5f[self.h5_grp_name].create_dataset('Data_full',data=data3d)
+        self.h5f.flush()
         
         grp=self.h5f[self.h5_grp_name].create_group('Averaged_data')
-        grp.create_dataset('Ave_spectrum',data=ave_spectrum)
+        grp.create_dataset('Ave_spectrum',data=ave_spectrum/n_spectra)
         grp.create_dataset('Total_3d_map',data=ave_3d_map)
         self.h5f.flush()      
 
