@@ -42,7 +42,7 @@ def convert_chunk(p):
         x,y,z=data_chunk[i,:-1]
         point_spectrum=np.zeros(len(signal_ii)+3)
         point_spectrum[:3]=(int(x/xy_bins),int(y/xy_bins),int(z/z_bins))
-        while data_chunk[i,:-1]==(x,y,z):
+        while tuple(data_chunk[i,:-1])==(x,y,z):
             c_tof=int(data_chunk[i,3]/tof_resolution)
             if c_tof in signal_ii:
                 point_spectrum[c_tof+3]+=1
@@ -118,8 +118,8 @@ def fit_point(p):
  
     
     
-def peaks_detection(tofs, tof_resolution, threshold,tofs_max):
-    M=tofs_max
+def peaks_detection(tofs, tof_resolution, threshold):
+    M=tofs.max()
     
     htofs, b=np.histogram(tofs, int(M/tof_resolution), (0,int(M/tof_resolution)*tof_resolution))
     max_signal = htofs.max()

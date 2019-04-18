@@ -147,33 +147,8 @@ class SIMSconversion(object):
         '''
         print('Detecting peaks...')
 
-        if self.use_mp==True:
-##############################
-            tofs_max=self.h5f['Raw_data']['Raw_data'][:,3].max()
-            number=len(self.h5f['Raw_data']['Raw_data'])
-            self.h5f.close()
-            def fh5(p):
-                
-                path_to_file=p[0]
-                indices_group=p[1]
-                h5f=h5py.File(path_to_file,'r',swmr=True)
-                for indices in indices_group:
-                    signal_ii,counts=peaks_detection(h5f['Raw_data']['Raw_data'][:,3][indices], self.tof_resolution, self.counts_threshold,tofs_max)
-                    shared_list.append(counts)
-                shared_tofs_x_axis=counts
-                h5f.close()
-            shared_list=
-            shared_tofs_x_axis=
-            p=[]
-            for i in range(self.cores):
-                
-                p+=[(self.h5f_path, indices_group)]
-            #print(p)    
-            pool=Pool(self.cpres)
-
-##############################
-        else:
-            signal_ii,counts=peaks_detection(self.h5f['Raw_data']['Raw_data'][:,3], self.tof_resolution, self.counts_threshold)
+        
+        signal_ii,counts=peaks_detection(self.h5f['Raw_data']['Raw_data'][:,3], self.tof_resolution, self.counts_threshold)
         mass=((signal_ii*self.tof_resolution+self.K0+71*40)/self.SF)**2
         print('Please select peaks to exclude')
         exclude_mass = np.array([])
@@ -236,19 +211,15 @@ class SIMSconversion(object):
         else:
             dataset='Raw_data'
         
-        counts = self.h5f['Raw_data'].shape[0]
+        counts = self.h5f['Raw_data']['Raw_data'].shape[0]
         chunk_size = 10000
         n_chunks = counts // chunk_size
         remainder = chunk_size % n_chunks
+        
+        p_wrapped=[(self.h5_path, i*chunk_size, chunk_size, (self.xy_bins, self.z_bins, self.spectra_tofs, self.tof_resolution)) for i in range(n_chunks)]
+        p_wrapped.append((self.h5_path, n_chunks, remainder, (self.xy_bins, self.z_bins, self.spectra_tofs, self.tof_resolution)))
         t0=time.time()
-        
-        p_parms=itertools.repeat((self.x_points, self.y_points, self.xy_bins, 
-                                  self.spectra_tofs, self.tof_resolution))
-        
-        p_wrapped=[(, i*chunk_size, chunk_size, (self.xy_bins, self.z_bins, self.spectra_tofs, self.tof_resolution)) for i in range(n_chunks)]
-        p_wrapped.append((self.h5f, (i+1)*chunk_size, remainder, (self.xy_bins, self.z_bins, self.spectra_tofs, self.tof_resolution)))
         print("SIMS data preparation complete. %d sec"%(time.time()-t0))
-        t0=time.time()
         print("SIMS data conversion...")
                           
         pool=Pool(processes=cores)
@@ -264,7 +235,7 @@ class SIMSconversion(object):
         
         n_spectra=0 
         ave_3d_map = np.zeros(shape=(self.x_points, self.y_points))
-        data3d = np.zeros(shape=(self.x_points, self.y_points, self.z_points, len(self.spectra_len)))
+        data3d = np.zeros(shape=(self.x_points, self.y_points, self.z_points, self.spectra_len))
         for out_block in mapped_results:
             for spectrum in out_block:
                 x, y, z = tuple(spectrum[:3])

@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 from itertools import repeat, product
 from sklearn.decomposition import NMF, PCA
 from scipy.ndimage import gaussian_filter
+import os
 
 import h5py
 
@@ -59,6 +60,7 @@ class SIMSdata(object):
         #Initialize raw data handler class
         raw_data = SIMSrawdata()
         self.h5f = raw_data.load_from_file(path, file_prefix, nuke=nuke)
+        self.h5_path = os.path.join(path, file_prefix+'.h5')
         return
 
     def load_h5(self, h5_path):
@@ -83,7 +85,7 @@ class SIMSdata(object):
             self.shift_correction(conv_model, cores=cores)
 
         #Convert raw data into Numpy array
-        conv_data = SIMSconversion(name, self.h5f, conv_model, self.h5_path,use_mp=self.use_mp,cores=self.cores)
+        conv_data = SIMSconversion(name, self.h5f, conv_model, self.h5_path, use_mp=self.use_mp,cores=self.cores)
 
         if conv_model.conv_all:
             conv_data.select_all_peaks(conv_model.exclude_mass)
