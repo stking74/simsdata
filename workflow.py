@@ -5,25 +5,28 @@ Created on Fri Sep 16 15:26:08 2016
 @author: iv1
 """
 import datetime
+import os
+root = os.getcwd()
+libdir = r'/home/tyler/Code/Python'
+os.chdir(libdir)
+import simsdata
+os.chdir(root)
 
-#%%This code won’t work from Python console
-#!!! Clean import procedure with __init__.py file etc.
-from SIMSmodel import SIMSmodel
-from SIMSdata import SIMSdata
 verbose = True
+
 #%%
 
 #print('start time = %s'%(str(timestamps['start'])))
 if __name__ == '__main__':
 
-    cores = 8
+    cores = 1
     #Path to file and prefix
-    path = r'E:\Nick\west'
-    prefix = 'rubber e (rubber e)-#1 of 2-(+)'
+    path = r'/home/tyler/Documents/Work/Ovchinnikova/hackathon test data'
+    prefix = '003 posions dark 0v'
     #Initialize converter class
     if verbose:
         print('Initializing data handler...')
-    sims_data = SIMSdata()
+    sims_data = simsdata.SIMSdata()
     #sims_data.load_h5(h5_path)
     
     #Load SIMS measurement data from raw datafile
@@ -34,7 +37,7 @@ if __name__ == '__main__':
     #Preparing SIMS conversion model
     if verbose:
         print('Intiailizing data converter...')
-    model = SIMSmodel(xy_bins=1, z_bins=5, counts_threshold=0.01, tof_resolution=64) #Minimal overhead
+    model = simsdata.SIMSmodel(xy_bins=1, z_bins=5, counts_threshold=0.01, tof_resolution=64) #Minimal overhead
 
     model.convert_all_peaks()
     #model.enable_shift_correction()
