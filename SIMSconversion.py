@@ -22,7 +22,7 @@ class SIMSconversion(object):
     '''
     Class performing conviersion of SIMS data into numpy array
     '''
-    def __init__(self, name, h5f, conv_model,h5_path,use_mp=True,cores=2):
+    def __init__(self, name, h5f, conv_model,h5_path,cores=2):
         '''
         Class constructor
         
@@ -36,7 +36,6 @@ class SIMSconversion(object):
         print('Initializing converter...')
         self.h5_path=h5_path
         self.name=name        
-        self.use_mp=use_mp
         self.cores=cores
         self.h5f=h5f
         self.tof_resolution=conv_model.tof_resolution
@@ -119,8 +118,38 @@ class SIMSconversion(object):
         mass_targets : list
             Masses of corresponding peaks
         '''
-        
-        signal_ii,counts=peaks_detection(self.h5f['Raw_data']['Raw_data'][:,3], self.tof_resolution, self.counts_threshold)
+        if self.cores=1:
+            signal_ii,counts=peaks_detection(self.h5f['Raw_data']['Raw_data'][:,3], self.tof_resolution, self.counts_threshold)
+        else:
+            tofs_max=self.h5f['Raw_data']['Raw_data'][:,3].max()
+            counts = self.h5f['Raw_data']['Raw_data'].shape[0
+            chunk_size = 10000
+            n_chunks = counts // chunk_size
+            remainder = chunk_size % n_chunks
+            p_wrapped=[(self.h5_path, i*chunk_size, chunk_size, (self.tof_resolution, self.counts_threshold, tofs_max)) for i in range(n_chunks)]
+            p_wrapped.append((self.h5_path, n_chunks, remainder, (self.tof_resolution, self.counts_threshold, tofs_max)))
+            t0=time.time()
+            print("SIMS data is prepared for averaging complete. %d sec"%(time.time()-t0))
+            print("SIMS data averaging...")
+
+            pool=Pool(processes=self.cores)
+            mapped_results=pool.imap(average_data, p_wrapped, chunksize=1) 
+            pool.close() 
+
+            sum_spectrum=[]
+            for out_block in mapped_results:
+                for hist in out_block:
+                    htofs, b = tuple(hist)
+                    sum_spectrum+ = b
+                    n_spectra += 1
+            average_spectrum=sum_spectrum/n_spectra
+            max_signal = htofs.max()
+            threshold = max_signal * self.counts_threshold
+            signal_ii=np.where(average_spectrum>threshold)[0]
+            counts=htofs[signal_ii]
+            del(htofs)
+            del(b)  
+
         mass=((signal_ii*self.tof_resolution+self.K0+71*40)/self.SF)**2         
 
         self.spectra_tofs=np.empty(0)

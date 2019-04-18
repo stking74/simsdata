@@ -116,7 +116,13 @@ def fit_point(p):
     except:
         return(np.zeros(4))    
  
-    
+def average_data(p):
+    h5f=h5py.File(p[0])
+    data_chunk=h5f['Raw_data']['Raw_data'][p[1]:(p[1]+p[2]),:]
+    h5f.close()
+    tof_resolution,counts_threshold,tofs_max=p[3]
+    htofs, b=peaks_detection_hist(data_chunk, tof_resolution, counts_threshold, tofs_max)
+    return htofs, b   
     
 def peaks_detection(tofs, tof_resolution, threshold):
     M=tofs.max()
@@ -129,7 +135,12 @@ def peaks_detection(tofs, tof_resolution, threshold):
     del(htofs)
     del(b)  
     return signal_ii, counts
-    
+
+def peaks_detection_hist(tofs, tof_resolution, threshold, tofs_max):
+    M=tofs_max  
+    htofs, b=np.histogram(tofs, int(M/tof_resolution), (0,int(M/tof_resolution)*tof_resolution))
+    return htofs, b
+
 def peaks_filtering(signal_ii, mass, threshold, exclude_mass):    
     i=0
     filtered_signal_ii=np.empty(0)
