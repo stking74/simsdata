@@ -22,7 +22,7 @@ class SIMSconversion(object):
     '''
     Class performing conviersion of SIMS data into numpy array
     '''
-    def __init__(self, name, h5f, conv_model,h5_path,cores=2):
+    def __init__(self, h5f, name, conv_model,cores=2):
         '''
         Class constructor
         
@@ -34,7 +34,8 @@ class SIMSconversion(object):
             Conversion model
         '''
         print('Initializing converter...')
-        self.h5_path=h5_path
+        self.h5f=h5f
+        self.h5_path=h5f.filename
         self.name=name        
         self.cores=cores
         self.h5f=h5f
@@ -226,7 +227,7 @@ class SIMSconversion(object):
         grp.create_dataset('Total_3d_map',data=data2d.reshape((self.x_points,self.y_points,-1)).sum(axis=2).reshape((1,self.x_points,self.y_points)))
         self.h5f.flush()      
     
-    def convert_multiprocessing(self, cores=5, shift_corr=False):
+    def convert_multiprocessing(self, cores=5, shift_corr=False, chunk_size=1e6):
         '''
         Start multiprocessing conversion process
         
@@ -235,46 +236,36 @@ class SIMSconversion(object):
         cores : int
             Number of used CPU cores
         '''
-        if shift_corr and 'Raw_data_uncorr' in self.h5f['Raw_data']:
-            dataset='Raw_data_uncorr'
-        else:
-            dataset='Raw_data'
+                
+        counts = self.h5f['Raw_data']['Raw_data'].shape[0]             
+               
+        p_wrapped=(itertools.repeat(self.h5_path), itertools.repeat(chunk_size),
+                   range(0,counts,chunk_size), itertools.repeat((self.xy_bins, self.z_bins, self.spectra_tofs, self.tof_resolution)))
+        print("SIMS data preparation complete.")
         
-        counts = self.h5f['Raw_data']['Raw_data'].shape[0]
-        chunk_size = 10000
-        n_chunks = counts // chunk_size
-        remainder = chunk_size % n_chunks
-        
-        p_wrapped=[(self.h5_path, i*chunk_size, chunk_size, (self.xy_bins, self.z_bins, self.spectra_tofs, self.tof_resolution)) for i in range(n_chunks)]
-        p_wrapped.append((self.h5_path, n_chunks, remainder, (self.xy_bins, self.z_bins, self.spectra_tofs, self.tof_resolution)))
         t0=time.time()
-        print("SIMS data preparation complete. %d sec"%(time.time()-t0))
         print("SIMS data conversion...")
                           
         pool=Pool(processes=cores)
-        mapped_results=pool.imap(convert_chunk, p_wrapped, chunksize=1) 
-        pool.close() 
-        
-        #data4d=np.zeros((self.z_points,self.x_points,self.y_points,self.spectra_len))
-        
-        layers=self.z_points if self.save_mode=='bin' else self.raw_z_points
-        layer_bins=self.z_bins if self.save_mode=='bin' else 1
-        
+        mapped_results=pool.imap(convert_chunk, p_wrapped)         
+               
         ave_spectrum=np.zeros(self.spectra_len)
         
         n_spectra=0 
-        ave_3d_map = np.zeros(shape=(self.x_points, self.y_points))
-        data3d = np.zeros(shape=(self.x_points, self.y_points, self.z_points, self.spectra_len))
+        ave_3d_map = np.zeros((self.x_points, self.y_points))
+        data4d = np.zeros((self.z_points, self.x_points, self.y_points, self.spectra_len))
         for out_block in mapped_results:
             for spectrum in out_block:
-                x, y, z = tuple(spectrum[:3])
-                spectrum = spectrum[3:]
-                data3d[x,y,z] += spectrum
-                ave_3d_map[x, y] += np.sum(spectrum)
-                ave_spectrum += spectrum
+                x, y, z = spectrum[:3]
+                data4d[x,y,z] += spectrum[3:]
+                ave_3d_map[x, y] += np.sum(spectrum[3:])
+                ave_spectrum += spectrum[3:]
                 n_spectra += 1
+            print('Block_%d processed'%(n_spectra))
+
+        pool.close()
          
-        self.h5f[self.h5_grp_name].create_dataset('Data_full',data=data3d)
+        self.h5f[self.h5_grp_name].create_dataset('Data_full',data=data4d.reshape((-1, self.spectra_len)))
         self.h5f.flush()
         
         grp=self.h5f[self.h5_grp_name].create_group('Averaged_data')

@@ -31,7 +31,11 @@ def convert_chunk(p):
     
     """
     h5f=h5py.File(p[0])
-    data_chunk=h5f['Raw_data']['Raw_data'][p[1]:(p[1]+p[2]),:]
+    counts=h5f['Raw_data']['Raw_data'].shape[0]
+    
+    data_chunk=h5f['Raw_data']['Raw_data'][p[1]:(p[1]+p[2]),:] if (p[1]+p[2])<counts else\
+        h5f['Raw_data']['Raw_data'][p[1]:,:]
+    
     h5f.close()
     
     xy_bins, z_bins, signal_ii, tof_resolution=p[3]  
@@ -44,8 +48,10 @@ def convert_chunk(p):
         point_spectrum[:3]=(int(x/xy_bins),int(y/xy_bins),int(z/z_bins))
         while tuple(data_chunk[i,:-1])==(x,y,z):
             c_tof=int(data_chunk[i,3]/tof_resolution)
-            if c_tof in signal_ii:
-                point_spectrum[c_tof+3]+=1
+            
+            ii=np.searchsorted(signal_ii, c_tof)
+            if signal_ii[ii]==c_tof:
+                point_spectrum[ii+3]+=1
             i+=1
             
         data_out+=[point_spectrum]
