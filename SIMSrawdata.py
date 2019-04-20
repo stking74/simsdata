@@ -34,7 +34,7 @@ class SIMSrawdata(object):
         tofs_path=os.path.join(path,file_prefix+'.itm.tofs')
         
         h5_path = os.path.join(path, file_prefix+'.h5')
-        h5f = h5py.File(h5_path, 'w')
+        h5f = h5py.File(h5_path, 'w',libver='latest',swmr=True)
         
         counts=int(os.path.getsize(scans_path)/4)
         if 'Raw_data' in h5f.keys():
@@ -54,38 +54,31 @@ class SIMSrawdata(object):
         
         i=0
         
-        tofs_chunk=np.frombuffer(f_tofs.read(chunk_size*4),'uint32')
-        scans_chunk=np.frombuffer(f_scans.read(chunk_size*4),'uint32')
-        coords_chunk=np.frombuffer(f_coords.read(chunk_size*8),'uint32')
-        
-        x_max,y_max, z_max=(0,0,0)
+        x_max,y_max, z_max, tofs_max=(0,0,0,0)
+        tofs_chunk=np.zeros(chunk_size)
         
         while len(tofs_chunk)==chunk_size:
+            tofs_chunk=np.frombuffer(f_tofs.read(chunk_size*4),dtype='uint32')
+            scans_chunk=np.frombuffer(f_scans.read(chunk_size*4),dtype='uint32')
+            coords_chunk=np.frombuffer(f_coords.read(chunk_size*8),dtype='uint32')
                         
             dset[i*chunk_size:(i+1)*chunk_size,0]=coords_chunk[::2]
             dset[i*chunk_size:(i+1)*chunk_size,1]=coords_chunk[1::2]
             dset[i*chunk_size:(i+1)*chunk_size,2]=scans_chunk
             dset[i*chunk_size:(i+1)*chunk_size,3]=tofs_chunk
             h5f.flush()
-                      
-            if coords_chunk[::2].max()>x_max:
-                x_max=coords_chunk[::2].max()
-            if coords_chunk[1::2].max()>y_max:
-                y_max=coords_chunk[1::2].max()
-            if scans_chunk.max()>z_max:
-                z_max=scans_chunk.max()
             
-            del(tofs_chunk)
-            del(scans_chunk)
-            del(coords_chunk)
+            x_max=coords_chunk[::2].max() if coords_chunk[::2].max()>x_max else x_max
+            y_max=coords_chunk[1::2].max() if coords_chunk[1::2].max()>y_max else y_max
+            z_max=scans_chunk.max() if scans_chunk.max()>z_max else z_max
+            tofs_max=tofs_chunk.max() if tofs_chunk.max()>tofs_max else tofs_max
             
-            print('Chunk %d completed'%(i))
-            
-            tofs_chunk=np.fromstring(f_tofs.read(chunk_size*4),dtype='uint32')
-            scans_chunk=np.fromstring(f_scans.read(chunk_size*4),dtype='uint32')
-            coords_chunk=np.fromstring(f_coords.read(chunk_size*8),dtype='uint32')
-            
+            print('Chunk %d completed'%(i))        
             i+=1
+            
+        del(tofs_chunk)
+        del(scans_chunk)
+        del(coords_chunk)
             
         f_tofs.close()
         f_scans.close()
@@ -119,9 +112,10 @@ class SIMSrawdata(object):
         grp.attrs['Total_counts']=counts
         grp.attrs['SF']=SF
         grp.attrs['K0']=K0
-        grp.attrs['x_points']=x_max
-        grp.attrs['y_points']=y_max
-        grp.attrs['z_points']=z_max
+        grp.attrs['x_points']=x_max+1
+        grp.attrs['y_points']=y_max+1
+        grp.attrs['z_points']=z_max+1
+        grp.attrs['spectra_points']=tofs_max+1
 
         h5f.flush()
         if nuke: os.remove(parms_path)

@@ -26,23 +26,17 @@ class SIMSdata(object):
     Class stroing and processing converted SIMS data
     '''
 
-    def __init__(self, h_ex=1.5e-3, U_ex=2e3,cores=2):
+    def __init__(self):
         '''
         Initialize SIMSdata data handling class. Begin by setting 
-        [[UNKNOWN]] calibration constants.
-        
-        #!!! Find out what these calibration constants are
         '''
-        self.h_ex = h_ex
-        self.U_ex = U_ex
-        self.cores=cores
         return
 
     def close(self):
         self.h5f.flush()
         self.h5f.close()
 
-    def load_raw(self, path, file_prefix, nuke=False):
+    def load_raw(self, path, file_prefix, chunk_order=2, chunk_size=256, nuke=False):
         '''
         Read in SIMS measurement data from raw datafiles.
         
@@ -58,15 +52,15 @@ class SIMSdata(object):
         
         #Initialize raw data handler class
         raw_data = SIMSrawdata()
-        self.h5f = raw_data.load_from_file(path, file_prefix, nuke=nuke)
+        self.h5f = raw_data.load_from_file(path, file_prefix, chunk_order=chunk_order, unit_size=chunk_size, nuke=nuke)
         self.h5_path = os.path.join(path, file_prefix+'.h5')
         return
 
     def load_h5(self, h5_path):
         self.h5_path=h5_path
-        self.h5f = h5py.File(self.h5_path)
+        self.h5f = h5py.File(self.h5_path,'r+',libver='latest',swmr=True)
 
-    def convert_data(self, name, conv_model, cores=5, **kwargs):
+    def convert_data(self, name, conv_model):
         '''
         Starts data conversion process
 
@@ -81,22 +75,17 @@ class SIMSdata(object):
         '''
         #Shift correction if enabled
         if conv_model.shift_corr:
-            self.shift_correction(conv_model, cores=cores)
+            self.shift_correction(conv_model, cores=conv_model.cores)
 
         #Convert raw data into Numpy array
-        conv_data = SIMSconversion(name, self.h5f, conv_model, self.h5_path,cores=self.cores)
+        conv_data = SIMSconversion(name, self.h5f, conv_model)
 
         if conv_model.conv_all:
             conv_data.select_all_peaks(conv_model.exclude_mass)
         else:
             conv_data.select_few_peaks(conv_model.peaks_mass)
-
-        if cores < 2:
-            print('Single_process')
-            conv_data.convert_single_process()
-        else:
-            print('Multi_process')
-            conv_data.convert_multiprocessing(cores=cores)
+            
+        conv_data.convert()
 
         self.spectra_tofs = conv_data.spectra_tofs
         self.spectra_mass = conv_data.spectra_mass
@@ -108,7 +97,6 @@ class SIMSdata(object):
 
         print("h5_grp_name:", conv_data.h5_grp_name)
 
-        self.data = self.h5f[conv_data.h5_grp_name]['Data_full']
 
     def load_converted_data(self, conv_no):
         conv_name = 'Converted_'+str(conv_no).zfill(3)
