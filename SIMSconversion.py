@@ -283,7 +283,7 @@ class SIMSconversion(object):
         self._save_converted_data(data4d.reshape((-1, self.spectra_len)), ave_spectrum,ave_3d_map)
         print("Conversion complete. %d sec"%(time.time()-t0))  
  
-    def _save_converted_data(data2d, ave_spectrum, total_3d_map):
+    def _save_converted_data(self,data2d, ave_spectrum, total_3d_map):
         self.h5f[self.h5_grp_name].create_dataset('Data_full',data=data2d)       
         grp=self.h5f[self.h5_grp_name].create_group('Averaged_data')
         grp.create_dataset('Ave_spectrum',data=ave_spectrum)
