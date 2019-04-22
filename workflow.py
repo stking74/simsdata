@@ -37,7 +37,7 @@ if __name__ == '__main__':
     #Preparing SIMS conversion model
     if verbose:
         print('Intiailizing data converter...')
-    model = simsdata.SIMSmodel(xy_bins=1, z_bins=5, counts_threshold=0.01, tof_resolution=64) #Minimal overhead
+    model = simsdata.SIMSmodel(xy_bins=1, z_bins=5, counts_threshold=0.01, tof_resolution=64,cores=4,chunk_size=1e6) #Minimal overhead
 
     model.convert_all_peaks()
     #model.enable_shift_correction()

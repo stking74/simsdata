@@ -10,7 +10,7 @@ class SIMSmodel(object):
     Contains data required for SIMS data conversion
     '''
     def __init__(self, tof_resolution=4, xy_bins=1, z_bins=1, z_points=None,
-                 width_threshold=4, counts_threshold=1000, z_range=None, save_mode='bin', 
+                 width_threshold=1, counts_threshold=1000, z_range=None, save_mode='bin', 
                  cores=1, chunk_size=1e6):
         '''
         Initializes model

@@ -196,8 +196,7 @@ class SIMSconversion(object):
                   
         self.spectra_tofs=peaks_filtering(signal_ii, mass, self.width_threshold, exclude_mass)       
         self.spectra_mass=((self.spectra_tofs*self.tof_resolution+self.K0+71*40)/self.SF)**2 
-        self.spectra_len=len(self.spectra_tofs)
-        
+        self.spectra_len=len(self.spectra_tofs)               
         self.create_h5_grp()
         self.h5f[self.h5_grp_name].create_dataset('Excluded_peaks',data=exclude_mass)
         

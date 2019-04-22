@@ -123,7 +123,7 @@ def peaks_filtering(signal_ii, mass, threshold, exclude_mass):
         while i<len(signal_ii)-1 and signal_ii[i+1]==signal_ii[i]+1:
             i+=1
         
-        if i-i0+1>threshold: 
+        if i-i0+1>=threshold: 
             peak=np.arange(signal_ii[i0], signal_ii[i]+1)    
             for em in exclude_mass:
                 if mass[i0]<=em<=mass[i]: peak=np.empty(0)       
