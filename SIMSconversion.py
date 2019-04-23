@@ -105,8 +105,16 @@ class SIMSconversion(object):
         ax[0].plot(sum_spectrum)
         
         max_signal = sum_spectrum.max()
-        threshold = max_signal * self.counts_threshold
-        signal_ii=np.where(sum_spectrum>threshold)[0]
+        threshold = self.counts_threshold
+        #If input threshold value is >= 1, value is interpreted as absolute count threshold. All bins with < threshold counts will be filtered.
+        #If input threshold is >= 0 and < 1, value is interpreted as relative. Threshold is recalculated as threshold*base_peak_intensity. All bins < new threshold will be filtered.
+        #If input threshold < 0, raise value error
+        if threshold >= 1:
+            signal_ii=np.where(sum_spectrum>threshold)[0]
+        elif threshold >= 0 and threshold < 1:
+            threshold = max_signal * self.counts_threshold
+            signal_ii=np.where(sum_spectrum>threshold)[0]
+        else: raise ValueError('Threshold value must be positive.')
         ax[1].plot(sum_spectrum[signal_ii])
         
         self.sum_spectrum=sum_spectrum
@@ -278,7 +286,7 @@ class SIMSconversion(object):
         chunk_no=0
         for out_block in mapped_results:
             for spectrum in out_block:
-                x, y, z = spectrum[:3]               
+                x, y, z = spectrum[:3]
                 data4d[z,x,y] += spectrum[3:]
                 ave_3d_map[z,x,y] += np.sum(spectrum[3:])
                 ave_spectrum += spectrum[3:]
