@@ -60,7 +60,7 @@ class SIMSdata(object):
         self.h5_path=h5_path
         self.h5f = h5py.File(self.h5_path,'r+',libver='latest',swmr=True)
 
-    def convert_data(self, name, conv_model):
+    def convert_data(self, name, conv_model, cores=5):
         '''
         Starts data conversion process
 

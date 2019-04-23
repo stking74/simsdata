@@ -46,7 +46,12 @@ class SIMSrawdata(object):
         else:
             chunk_size=int(2**(10*chunk_order)*unit_size/4)                     #Number of values in one chunk
         
-        dset=grp.create_dataset('Raw_data', (counts, 4), dtype='uint32',chunks=(chunk_size,1))
+        #Dynamically resize chunks for exceptionally small datasets
+        while True:
+            try: 
+                dset=grp.create_dataset('Raw_data', (counts, 4), dtype='uint32',chunks=(chunk_size,1))
+                break
+            except ValueError: chunk_size = chunk_size / 2
 
         f_tofs=open(tofs_path, 'rb')
         f_scans=open(scans_path, 'rb')

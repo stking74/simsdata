@@ -9,6 +9,7 @@ import numpy as np
 import h5py
 from numpy import pi
 from scipy.optimize import curve_fit
+from multiprocessing import Lock
 
 def maxwell(x, *p):
     A, a, x0 = p
@@ -29,6 +30,8 @@ def convert_chunk(p):
     """
     h5f=h5py.File(p[1][0])
     counts=h5f['Raw_data']['Raw_data'].shape[0]
+    
+    #lock = Lock()
     
     lock.acquire()
     data_chunk=h5f['Raw_data']['Raw_data'][p[0]:(p[0]+p[1][1]),:] if (p[0]+p[1][1])<counts else\

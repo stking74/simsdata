@@ -74,6 +74,7 @@ class SIMSconversion(object):
         counts = self.h5f['Raw_data']['Raw_data'].shape[0]        
         sum_spectrum=np.zeros(int(self.tofs_max/self.tof_resolution))
         if self.cores==1:
+            print('Starting single core binning...')
             tofs=self.h5f['Raw_data']['Raw_data'][:,3]
             for start_i in range(0,counts,self.chunk_size):
                 chunk=self.h5f['Raw_data']['Raw_data'][start_i:(start_i+self.chunk_size),3] if (start_i+self.chunk_size)<self.tofs_max else\
@@ -84,6 +85,7 @@ class SIMSconversion(object):
                 del(b)
 
         else:
+            print('Staring multicore binning...')
             p_wrapped=zip(range(0,counts,self.chunk_size), 
                           itertools.repeat((self.h5_path,self.chunk_size,self.tof_resolution,self.tofs_max)))
  
@@ -217,7 +219,9 @@ class SIMSconversion(object):
         
         counts = self.h5f['Raw_data']['Raw_data'].shape[0]             
         
-        data4d = np.zeros((self.z_points, self.x_points, self.y_points, self.spectra_len))
+        z_points = self.z_points
+        if z_points == 0: z_points = 1
+        data4d = np.zeros((z_points, self.x_points, self.y_points, self.spectra_len))
         
         ave_3d_map = np.zeros((self.z_points,self.x_points, self.y_points))
         ave_spectrum=np.zeros(self.spectra_len)
@@ -252,20 +256,24 @@ class SIMSconversion(object):
 
         t0=time.time()
         print("SIMS data conversion...")
+        
+        
+        def param_generator(self, counts):
+            for i in range(0, counts, self.chunk_size):
+                yield (i, (self.h5_path,self.chunk_size,self.xy_bins, self.z_bins, self.spectra_tofs, self.tof_resolution))
                 
-        counts = self.h5f['Raw_data']['Raw_data'].shape[0]             
-               
-        p_wrapped=zip(range(0,counts,self.chunk_size), 
-                   itertools.repeat((self.h5_path,self.chunk_size,self.xy_bins, self.z_bins, 
-                                     self.spectra_tofs, self.tof_resolution)))       
+        counts = self.h5f['Raw_data']['Raw_data'].shape[0]
+        p_wrapped=param_generator(self, counts)
         lock=Lock()
         pool=Pool(processes=self.cores,initializer=init_mp_lock, initargs=(lock,))
         mapped_results=pool.imap_unordered(convert_chunk, p_wrapped)         
                
         ave_spectrum=np.zeros(self.spectra_len)
-        
-        ave_3d_map = np.zeros((self.z_points,self.x_points, self.y_points))
-        data4d = np.zeros((self.z_points, self.x_points, self.y_points, self.spectra_len))
+        z_points = self.z_points
+        if z_points < 1: z_points = 1
+        ave_3d_map = np.zeros((z_points,self.x_points, self.y_points))
+        data4d = np.zeros((z_points, self.x_points, self.y_points, self.spectra_len))
+        print('dset size = (',self.x_points, self.y_points, z_points, self.spectra_len,')')
         
         chunk_no=0
         for out_block in mapped_results:
@@ -283,7 +291,7 @@ class SIMSconversion(object):
         self._save_converted_data(data4d.reshape((-1, self.spectra_len)), ave_spectrum,ave_3d_map)
         print("Conversion complete. %d sec"%(time.time()-t0))  
  
-    def _save_converted_data(data2d, ave_spectrum, total_3d_map):
+    def _save_converted_data(self, data2d, ave_spectrum, total_3d_map):
         self.h5f[self.h5_grp_name].create_dataset('Data_full',data=data2d)       
         grp=self.h5f[self.h5_grp_name].create_group('Averaged_data')
         grp.create_dataset('Ave_spectrum',data=ave_spectrum)
