@@ -57,41 +57,49 @@ class SIMSrawdata(object):
         f_scans=open(scans_path, 'rb')
         f_coords=open(coords_path, 'rb')
         
-        i=0
-        
         x_max,y_max, z_max, tofs_max=(0,0,0,0)
-        tofs_chunk=np.zeros(chunk_size)
         
+        tofs_chunk=np.zeros(chunk_size)
+        print('Writing tofs...')
+        i=0
         while len(tofs_chunk)==chunk_size:
             tofs_chunk=np.frombuffer(f_tofs.read(chunk_size*4),dtype='uint32')
-            scans_chunk=np.frombuffer(f_scans.read(chunk_size*4),dtype='uint32')
-            coords_chunk=np.frombuffer(f_coords.read(chunk_size*8),dtype='uint32')
-                        
-            dset[i*chunk_size:(i+1)*chunk_size,0]=coords_chunk[::2]
-            dset[i*chunk_size:(i+1)*chunk_size,1]=coords_chunk[1::2]
-            dset[i*chunk_size:(i+1)*chunk_size,2]=scans_chunk
             dset[i*chunk_size:(i+1)*chunk_size,3]=tofs_chunk
-            h5f.flush()
-            
-            x_max=coords_chunk[::2].max() if coords_chunk[::2].max()>x_max else x_max
-            y_max=coords_chunk[1::2].max() if coords_chunk[1::2].max()>y_max else y_max
-            z_max=scans_chunk.max() if scans_chunk.max()>z_max else z_max
             tofs_max=tofs_chunk.max() if tofs_chunk.max()>tofs_max else tofs_max
-            
             print('Chunk %d completed'%(i))        
             i+=1
-            
         del(tofs_chunk)
-        del(scans_chunk)
-        del(coords_chunk)
-            
+        h5f.flush()
         f_tofs.close()
+        if nuke: os.remove(tofs_path)
+        scans_chunk=np.zeros(chunk_size)
+        print('Writing scans...')
+        i=0
+        while len(scans_chunk)==chunk_size:
+            scans_chunk=np.frombuffer(f_scans.read(chunk_size*4),dtype='uint32')
+            dset[i*chunk_size:(i+1)*chunk_size,2]=scans_chunk
+            z_max=scans_chunk.max() if scans_chunk.max()>z_max else z_max
+            print('Chunk %d completed'%(i))        
+            i+=1
+        del(scans_chunk)
+        h5f.flush()
         f_scans.close()
+        if nuke: os.remove(scans_path)
+        coords_chunk=np.zeros(chunk_size*2)
+        print('Writing coordinates...')
+        i=0
+        while len(coords_chunk)==chunk_size*2:
+            coords_chunk=np.frombuffer(f_coords.read(chunk_size*8),dtype='uint32')
+            dset[i*chunk_size:(i+1)*chunk_size,0]=coords_chunk[::2]
+            dset[i*chunk_size:(i+1)*chunk_size,1]=coords_chunk[1::2]
+            x_max=coords_chunk[::2].max() if coords_chunk[::2].max()>x_max else x_max
+            y_max=coords_chunk[1::2].max() if coords_chunk[1::2].max()>y_max else y_max
+            print('Chunk %d completed'%(i))        
+            i+=1
+        del(coords_chunk)
+        h5f.flush()
         f_coords.close()
-        if nuke: 
-            os.remove(tofs_path)
-            os.remove(scans_path)
-            os.remove(coords_path)
+        if nuke: os.remove(coords_path)
             
         #Read in measurement parameters from properties plaintext file
         parms_path=os.path.join(path, file_prefix+'.properties.txt')
