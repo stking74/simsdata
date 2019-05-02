@@ -15,6 +15,7 @@ from scipy.ndimage import gaussian_filter
 import os
 
 import h5py
+import pyUSID as usid
 
 from multiprocessing import Pool
 from .SIMSconversion import SIMSconversion
@@ -46,8 +47,6 @@ class SIMSdata(object):
             directory containing datafiles
         file_prefix : str
             filename prefix common to all datafiles to be loaded
-            
-        #!!! Consider implementing a batch mode here?
         '''
         
         #Initialize raw data handler class
@@ -76,9 +75,13 @@ class SIMSdata(object):
         #Shift correction if enabled
         if conv_model.shift_corr:
             self.shift_correction(conv_model, cores=conv_model.cores)
+        
+        conv_fname = self.h5f.filename[:-3] + '_converted.h5'
+        if not os.path.isfile(conv_fname): conv_h5f = h5py.File(conv_fname, 'w')
+        else: conv_h5f = h5py.File(conv_fname, 'r+')
 
         #Convert raw data into Numpy array
-        conv_data = SIMSconversion(name, self.h5f, conv_model)
+        conv_data = SIMSconversion(name, self.h5f, conv_h5f, conv_model)
 
         if conv_model.conv_all:
             conv_data.select_all_peaks(conv_model.exclude_mass)
@@ -96,10 +99,11 @@ class SIMSdata(object):
         self.z_points = conv_data.z_points
 
         print("h5_grp_name:", conv_data.h5_grp_name)
-
+        conv_h5f.close()
 
     def load_converted_data(self, conv_no):
-        conv_name = 'Converted_'+str(conv_no).zfill(3)
+        #!!! Not split by raw/converted
+        conv_name = 'Converted_' + str(conv_no).zfill(3)
         if not conv_name in self.h5f.keys():
             print('Converted data not found')
         else:
@@ -151,13 +155,13 @@ class SIMSdata(object):
             data2d = self.h5f[conv_data.h5_grp_name]['Data_full'][:, :]
 
             count_sum = data2d.sum(axis=1)
-            mass_centers = np.sum(data2d*conv_data.spectra_tofs, axis=1)/count_sum
+            mass_centers = np.sum(data2d * conv_data.spectra_tofs, axis=1) / count_sum
             mass_centers[np.where(count_sum < 10)] = np.nan
 
             max_pos = np.nanmax(mass_centers)
             layers = conv_data.raw_z_points if conv_data.save_mode == 'all' else conv_data.z_points
             #Correction coefficient
-            D = max_pos/mass_centers.reshape((layers, conv_data.x_points, conv_data.y_points))
+            D = max_pos / mass_centers.reshape((layers, conv_data.x_points, conv_data.y_points))
 
 
             f, ax = plt.subplots()
@@ -166,8 +170,7 @@ class SIMSdata(object):
             self.h5f['Raw_data'].create_dataset('D', data=D)
             self.h5f['Raw_data']['D'].attrs['Correction mode'] = 'Proportional using centroids'
             self.h5f['Raw_data']['D'].attrs['Max_peak_position'] = max_pos
-            self.h5f['Raw_data']['D'].attrs['Peak_mass'] = \
-                conv_data.spectra_mass[np.searchsorted(conv_data.spectra_tofs, max_pos)]
+            self.h5f['Raw_data']['D'].attrs['Peak_mass'] = conv_data.spectra_mass[np.searchsorted(conv_data.spectra_tofs, max_pos)]
             self.h5f['Raw_data']['D'].attrs['tof_resolution'] = conv_data.tof_resolution
             self.h5f.flush()
 
@@ -195,7 +198,7 @@ class SIMSdata(object):
                 tofs_corr = np.append(tofs_corr, t)
 
                 s += 1
-                if s*100/cores-complete >= 10:
+                if s * 100 / cores - complete >= 10:
                     complete += 10
                     print("%d%% complete"%(complete))
 
@@ -210,7 +213,7 @@ class SIMSdata(object):
             self.h5f['Raw_data']['Raw_data'][:, 3] = tofs_corr
             self.h5f.flush()
 
-            print("Shift correction complete. Time %d sec"%(time.time()-t0))
+            print("Shift correction complete. Time %d sec"%(time.time() - t0))
         return
     
     def plot_ave_data(self):
@@ -253,11 +256,8 @@ class SIMSdata(object):
         return tof_ext, mass_ext, y_data_ext
 
     def tof_to_mass(self, tof):
-        SF = self.h5f['Raw_data'].attrs['SF']
-        K0 = self.h5f['Raw_data'].attrs['K0']
-        tof_resolution = self.h5f[self.conv_name].attrs['tof_resolution']
-
-        return ((tof*tof_resolution+K0+71*40)/SF)**2
+        return ((tof * self.h5f[self.conv_name].attrs['tof_resolution'] +\
+                 self.h5f['Raw_data'].attrs['K0'] + 71 * 40) / self.h5f['Raw_data'].attrs['SF']) ** 2
 
     def NMF(self, comp_num, **kwargs):
         #load and prepare data
@@ -278,14 +278,14 @@ class SIMSdata(object):
         #Normalizing loading to 1
         coef = maps.reshape((-1, comp_num)).max(axis=0)
         maps /= coef
-        spectra = (spectra.T*coef).T
+        spectra = (spectra.T * coef).T
 
         #Saving data
         m = 1
         for name in self.h5f[self.conv_name].keys():
             parts = name.split('_')
             if parts[0] == 'NMF' and int(parts[1]) >= m:
-                m = int(parts[1])+1
+                m = int(parts[1]) + 1
 
         grp_name = 'NMF_'+str(m).zfill(3)
         grp = self.h5f[self.conv_name].create_group(grp_name)
@@ -327,7 +327,7 @@ class SIMSdata(object):
             f, ax = plt.subplots(comp_num, 1, sharex=True, sharey=True)
             for i in range(comp_num):
                 tof, mass, data = self.get_extended_spectra(spectra[i, :])
-                ax[i].plot(mass, data, linewidth=1.5, color=plt.cm.jet(int(i*255/(comp_num-1))))
+                ax[i].plot(mass, data, linewidth=1.5, color=plt.cm.jet(int(i * 255 / (comp_num - 1))))
         elif mode == 'merge':
             if 'delta' in kwargs.keys():
                 delta = kwargs['delta']
@@ -336,8 +336,8 @@ class SIMSdata(object):
             f, ax = plt.subplots()
             for i in range(comp_num):
                 tof, mass, data = self.get_extended_spectra(spectra[i, :])
-                ax.plot(mass, data+delta*i, linewidth=1.5,
-                        color=plt.cm.jet(int(i*255/(comp_num-1))))
+                ax.plot(mass, data + delta * i, linewidth=1.5,
+                        color=plt.cm.jet(int(i * 255 / (comp_num - 1))))
 
     def plot_loading_maps(self, mode='cross', **kwargs):
         '''
@@ -348,7 +348,7 @@ class SIMSdata(object):
 
         '''
         if not hasattr(self,'analysis_name'):
-            self.analysis_name = 'PCA_'+str(1).zfill(3)
+            self.analysis_name = 'PCA_' + str(1).zfill(3)
         maps = self.h5f[self.conv_name][self.analysis_name]['Maps'][:, :, :, :]
         if 'filtering' in kwargs.keys() and kwargs['filtering'] == 'Gauss':
             for i in range(maps.shape[3]):
@@ -374,7 +374,7 @@ class SIMSdata(object):
         if 'pos' in kwargs.keys():
             pos = kwargs['pos']
         else:
-            pos = (int(x_points/2), int(y_points/2), int(z_points/2))
+            pos = (int(x_points / 2), int(y_points / 2), int(z_points / 2))
 
         f, ax = plt.subplots(comp_num, 3)
         for i in range(comp_num):

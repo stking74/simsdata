@@ -1,0 +1,6 @@
+# -*- coding: utf-8 -*-
+pip install numpy
+pip install scikit-learn
+pip install h5py
+pip install scipy
+pip install pyUSID

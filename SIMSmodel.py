@@ -9,9 +9,9 @@ class SIMSmodel(object):
     '''
     Contains data required for SIMS data conversion
     '''
-    def __init__(self, tof_resolution=4, xy_bins=1, z_bins=1, z_points=None,
-                 width_threshold=1, counts_threshold=1000, z_range=None, save_mode='bin', 
-                 cores=1, chunk_size=1e6):
+    def __init__(self, tof_resolution=4, xy_bins=1, xy_resolution=None, z_bins=1, z_resolution=None, 
+                 z_points=None, width_threshold=1, counts_threshold=1000, z_range=None, 
+                 save_mode='bin', cores=1, chunk_size=1e6):
         '''
         Initializes model
 
@@ -30,11 +30,13 @@ class SIMSmodel(object):
         '''
         self.tof_resolution = tof_resolution
         self.xy_bins = xy_bins
+        self.xy_resolution = xy_resolution / xy_bins
         self.width_threshold = width_threshold
         self.counts_threshold = counts_threshold
 
         self.z_points = z_points
         self.z_bins = z_bins
+        self.z_resolution = z_resolution / z_bins
 
         #No shift correction by default
         self.shift_corr = 0

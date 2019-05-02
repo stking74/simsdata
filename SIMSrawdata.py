@@ -131,7 +131,6 @@ class SIMSrawdata(object):
         grp.attrs['spectra_points']=tofs_max+1
 
         h5f.flush()
-        if nuke: os.remove(parms_path)
         return h5f
 
     def load_from_array(self, x,y,z,tofs, SF, K0, scan_size):

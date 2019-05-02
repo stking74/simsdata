@@ -7,7 +7,7 @@ Created on Fri Sep 16 15:26:08 2016
 import datetime
 import os
 root = os.getcwd()
-libdir = r'/home/tyler/Code/Python'
+libdir = r'C:\Users\s4k\Documents\Python'
 os.chdir(libdir)
 import simsdata
 os.chdir(root)
@@ -21,8 +21,8 @@ if __name__ == '__main__':
 
     cores = 1
     #Path to file and prefix
-    path = r'/home/tyler/Documents/Work/Ovchinnikova/hackathon test data'
-    prefix = '003 posions dark 0v'
+    path = r'E:\Nick\west'
+    prefix = 'rubber e (rubber e)-#1 of 2-(+)'
     #Initialize converter class
     if verbose:
         print('Initializing data handler...')
@@ -37,7 +37,15 @@ if __name__ == '__main__':
     #Preparing SIMS conversion model
     if verbose:
         print('Intiailizing data converter...')
-    model = simsdata.SIMSmodel(xy_bins=1, z_bins=5, counts_threshold=0.01, tof_resolution=64,cores=4,chunk_size=1e6) #Minimal overhead
+    # xy_bins: width of bins to use for x/y binning
+    # z_bins: width of bins to use for z binning
+    # counts_threshold: sets value for intensity thresholding of raw peak data
+        # If > 1, interpreted as absolute threshold. Peaks with intensity < counts_threshold will not pass filter.
+        # Elif >= 0 and < 1, interpreted as relative threshold. Peaks with intensity < (counts_threshold * base_peak_intensity) will not pass fiter.
+    # tof_resolution: width of bins to use for tof binning
+    # cores: number of CPU cores to use for parallel processing
+    # chunk_size: HDF5 chunk length, also size of single processing work unit
+    model = simsdata.SIMSmodel(xy_bins=1, z_bins=5, counts_threshold=0.01, tof_resolution=64, cores=cores, chunk_size=1e6) #Minimal overhead
 
     model.convert_all_peaks()
     #model.enable_shift_correction()
