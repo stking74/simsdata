@@ -28,15 +28,20 @@ def convert_chunk(p):
     p[0] - chunk start position
     p[1] - (h5 file path,chunk size,xy_bins, z_bins, signal_ii, tof_resolution)
     """
-    h5f=h5py.File(p[1][0])
+    h5f=h5py.File(p[1][0],'r')
     counts=h5f['Raw_data']['Raw_data'].shape[0]
     
     #lock = Lock()
     
-    lock.acquire()
-    data_chunk=h5f['Raw_data']['Raw_data'][p[0]:(p[0]+p[1][1]),:] if (p[0]+p[1][1])<counts else\
-        h5f['Raw_data']['Raw_data'][p[0]:,:]
-    lock.release()
+    try:
+        lock.acquire()
+        data_chunk=h5f['Raw_data']['Raw_data'][p[0]:(p[0]+p[1][1]),:] if (p[0]+p[1][1])<counts else\
+            h5f['Raw_data']['Raw_data'][p[0]:,:]
+        lock.release()
+    except NameError: 
+        data_chunk=h5f['Raw_data']['Raw_data'][p[0]:(p[0]+p[1][1]),:] if (p[0]+p[1][1])<counts else\
+            h5f['Raw_data']['Raw_data'][p[0]:,:]
+            
     h5f.close()
     xy_bins, z_bins, signal_ii, tof_resolution=p[1][2:]  
     data_out=[]

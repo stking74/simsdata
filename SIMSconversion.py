@@ -101,7 +101,7 @@ class SIMSconversion(object):
         else:
             print('Staring multicore binning...')
             p_wrapped = zip(range(0,counts,self.chunk_size), 
-                            itertools.repeat((self.h5_path, self.chunk_size, self.tof_resolution, self.tofs_max)))
+                            itertools.repeat((self.raw_h5_path, self.chunk_size, self.tof_resolution, self.tofs_max)))
  
             lock = Lock()
             pool = Pool(processes=self.cores, initializer=init_mp_lock, initargs=(lock,))
@@ -217,7 +217,7 @@ class SIMSconversion(object):
         exclude_mass : list
             Masses of peaks to be excluded
         '''        
-        signal_ii = self._peaks_detection()
+        self.signal_ii = signal_ii = self._peaks_detection()
         mass = ((signal_ii*self.tof_resolution+self.K0+71*40)/self.SF)**2
         exclude_mass = np.array([])
                   
@@ -259,8 +259,8 @@ class SIMSconversion(object):
         chunk_no = 0
         
         for start_i in range(0, counts, self.chunk_size):
-            out_block = convert_chunk((start_i, (self.h5_path, self.chunk_size, self.xy_bins, 
-                                                 self.z_bins, self.spectra_tofs, self.tof_resolution)))
+            out_block = convert_chunk((start_i, (self.raw_h5_path, self.chunk_size, self.xy_bins, 
+                                                 self.z_bins, self.signal_ii, self.tof_resolution)))
             for spectrum in out_block:
                 x, y, z = spectrum[:3]
                 data4d[z, x, y] += spectrum[3:]
@@ -288,7 +288,7 @@ class SIMSconversion(object):
         
         def param_generator(self, counts):
             for i in range(0, counts, self.chunk_size):
-                yield (i, (self.h5_path, self.chunk_size, self.xy_bins, 
+                yield (i, (self.raw_h5_path, self.chunk_size, self.xy_bins, 
                            self.z_bins, self.spectra_tofs, self.tof_resolution))
                 
         counts = self.raw_h5f['Raw_data']['Raw_data'].shape[0]
@@ -317,8 +317,8 @@ class SIMSconversion(object):
 
         pool.close()
         print("SIMS saving converted data...")
-        data = data_out.reshape((-1, self.spectra_len))
-        self._save_converted_data(data, ave_spectrum, ave_3d_map)
+        data_out = data_out.reshape((-1, self.spectra_len))
+        self._save_converted_data(data_out, ave_spectrum, ave_3d_map)
         print("Conversion complete. %d sec"%(time.time() - t0))
  
     def _save_converted_data(self, data2d, ave_spectrum, total_3d_map):

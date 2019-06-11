@@ -51,7 +51,7 @@ class SIMSrawdata(object):
             try: 
                 dset=grp.create_dataset('Raw_data', (counts, 4), dtype='uint32',chunks=(chunk_size,1))
                 break
-            except ValueError: chunk_size = chunk_size / 2
+            except ValueError: chunk_size = int(chunk_size / 2)
 
         f_tofs=open(tofs_path, 'rb')
         f_scans=open(scans_path, 'rb')
@@ -225,7 +225,6 @@ class SIMSrawdata(object):
 
         dset=grp.create_dataset('Raw_data', (self.counts, 4), dtype='uint32',
                                 chunks=(1024*1024, 1))    #Implement chunking of 1-D data
-        #!!!Something about the chunking scheme here seems odd
         #!!!Consider breaking this into separate datasets for tofs and coords
         
         
