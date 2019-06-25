@@ -267,7 +267,7 @@ class SIMSconversion(object):
                 ave_3d_map[z, x, y] += np.sum(spectrum[3:])
                 ave_spectrum += spectrum[3:]
             chunk_no += 1
-            print('%d chunks of %d are processed'%(chunk_no, int(counts / self.chunk_size)))
+            print('%d chunks of %d are processed'%(chunk_no, int(counts / self.chunk_size)+1))
                            
         print("SIMS saving converted data...")
         self._save_converted_data(data4d.reshape((-1, self.spectra_len)), ave_spectrum, ave_3d_map)
@@ -340,8 +340,8 @@ class SIMSconversion(object):
         z_points = self.z_points
         if z_points < 1: z_points = 1
         position_dimensions = []
-        position_dimensions.append(usid.Dimension('x', 'um', np.linspace(0, self.x_points, self.x_points) * self.xy_resolution))
         position_dimensions.append(usid.Dimension('y', 'um', np.linspace(0, self.y_points, self.y_points) * self.xy_resolution))
+        position_dimensions.append(usid.Dimension('x', 'um', np.linspace(0, self.x_points, self.x_points) * self.xy_resolution))
         position_dimensions.append(usid.Dimension('z','um', np.linspace(0, -z_points, z_points) * self.z_resolution))
         spectroscopic_dimension = usid.Dimension('m/z', 'Th', self.spectra_mass)
         usid.hdf_utils.write_main_dataset(

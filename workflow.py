@@ -4,7 +4,6 @@ Created on Fri Sep 16 15:26:08 2016
 
 @author: iv1
 """
-import datetime
 import os
 root = os.getcwd()
 libdir = r'C:\Users\s4k\Documents\Python'
@@ -19,10 +18,10 @@ verbose = True
 #print('start time = %s'%(str(timestamps['start'])))
 if __name__ == '__main__':
 
-    cores = 1
+    cores = 8
     #Path to file and prefix
-    path = r'E:\Nick\west'
-    prefix = 'rubber e (rubber e)-#1 of 2-(+)'
+    path = r'E:\TylerData\temp'
+    prefix = '004 stage scan mouse brain posions'
     #Initialize converter class
     if verbose:
         print('Initializing data handler...')
@@ -45,7 +44,7 @@ if __name__ == '__main__':
     # tof_resolution: width of bins to use for tof binning
     # cores: number of CPU cores to use for parallel processing
     # chunk_size: HDF5 chunk length, also size of single processing work unit
-    model = simsdata.SIMSmodel(xy_bins=1, z_bins=5, counts_threshold=0.01, tof_resolution=64, cores=cores, chunk_size=1e6) #Minimal overhead
+    model = simsdata.SIMSmodel(tof_resolution=64, xy_bins=25, xy_resolution=2, z_bins=1, z_resolution=1, counts_threshold=0.01, cores=cores, chunk_size=1e6) 
 
     model.convert_all_peaks()
     #model.enable_shift_correction()
